@@ -1,24 +1,25 @@
 import streamlit as st
 from transformers import pipeline
-import fitz
+import pdfplumber
 
 def extract_text_from_pdf(uploaded_file):
     text_blocks = []
     try:
-        with fitz.open(uploaded_file) as pdf:
-            for page_num in range(len(pdf)):
-                page = pdf.load_page(page_num)
-                text = page.get_text()
+        with pdfplumber.open(uploaded_file) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
                 text_blocks.append(text)
     except Exception as e:
         st.error(f"Error occurred: {e}")
     return text_blocks
 
 def summarize_text(text, length=300):
-    summarization_pipeline = pipeline("summarization", model="facebook/bart-large-cnn", revision="main")
+    summarization_pipeline = pipeline("summarization", model="facebook/bart-large-cnn")#, revision="main"
+    min_length = max(50, length - 50)
     with st.spinner('Summarizing...'):
-        summary = summarization_pipeline(text, max_length=length, min_length=length-40, do_sample=False)[0]['summary_text']
+        summary = summarization_pipeline(text, max_length=length, min_length=min_length, do_sample=False)[0]['summary_text']
     return summary
+
 
 def main():
     st.title("PDF Text Extraction & Text Summarization App")
@@ -31,7 +32,7 @@ def main():
         text = "\n\n".join(text_blocks)
 
         default_length = 300
-        length_input = st.sidebar.number_input("Length of Summary", min_value=50, max_value=1000, value=default_length, step=10)
+        length_input = st.sidebar.number_input("Length of Summary", min_value=100, max_value=500, value=default_length, step=10)
 
         # Generate summary
         if st.sidebar.button("Summarize"):
@@ -39,7 +40,7 @@ def main():
             st.session_state['summarized_text'] = summarized_text
         
         if 'summarized_text' in st.session_state:
-            st.header("Summarized Text:")
+            st.header(f"Summarized Text: {len(st.session_state['summarized_text'].split(' '))} words")
             st.write(st.session_state['summarized_text'])
         
         # Split text on '.' only once
@@ -53,7 +54,7 @@ def main():
 
         num_text_blocks = st.sidebar.slider("Number of text blocks to display", 1, len(text_blocks), len(text_blocks))
         
-        st.header("Extracted Text:")
+        st.header(f"Extracted Text: {len(text.split(' '))} words")
         for i in range(num_text_blocks):
             st.write(text_blocks[i])
 
