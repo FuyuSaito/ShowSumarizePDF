@@ -1,5 +1,6 @@
 import streamlit as st
-from transformers import pipeline
+# from transformers import pipeline
+from transformers import BartForConditionalGeneration, BartTokenizer
 import pdfplumber
 
 def extract_text_from_pdf(uploaded_file):
@@ -13,11 +14,23 @@ def extract_text_from_pdf(uploaded_file):
         st.error(f"Error occurred: {e}")
     return text_blocks
 
+# def summarize_text(text, length=300):
+#     summarization_pipeline = pipeline("summarization", model="facebook/bart-large-cnn")#, revision="main"
+#     min_length = max(50, length - 50)
+#     with st.spinner('Summarizing...'):
+#         summary = summarization_pipeline(text, max_length=length, min_length=min_length, do_sample=False)[0]['summary_text']
+#     return summary
+
+
 def summarize_text(text, length=300):
-    summarization_pipeline = pipeline("summarization", model="facebook/bart-large-cnn")#, revision="main"
-    min_length = max(50, length - 50)
-    with st.spinner('Summarizing...'):
-        summary = summarization_pipeline(text, max_length=length, min_length=min_length, do_sample=False)[0]['summary_text']
+    model_name = "facebook/bart-large-cnn"
+    model = BartForConditionalGeneration.from_pretrained(model_name)
+    tokenizer = BartTokenizer.from_pretrained(model_name)
+
+    inputs = tokenizer([text], max_length=1024, return_tensors="pt", truncation=True)
+    summary_ids = model.generate(inputs['input_ids'], max_length=length, min_length=max(50, length - 50), early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    
     return summary
 
 
